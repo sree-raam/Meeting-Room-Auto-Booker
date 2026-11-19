@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Room Auto Booker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #f7f8fa;
+    color: #1f2933;
+    line-height: 1.5;
+    padding: 24px 16px 48px;
+  }
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-size: 1.7rem; color: #16324f; }
+  header p { color: #52606d; font-size: 0.95rem; margin-top: 4px; }
+  .summary-bar {
+    max-width: 980px; margin: 0 auto 24px;
+    background: #16324f; color: #fff; border-radius: 10px;
+    padding: 14px 20px; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .summary-bar strong { font-size: 1.2rem; }
+  section {
+    max-width: 980px; margin: 0 auto 24px; background: #fff;
+    border: 1px solid #e4e7eb; border-radius: 10px; padding: 20px;
+  }
+  section h2 {
+    font-size: 1.15rem; color: #16324f; margin-bottom: 12px;
+    border-bottom: 2px solid #e4e7eb; padding-bottom: 8px;
+  }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; }
+  .field label { font-size: 0.85rem; color: #52606d; font-weight: 600; }
+  input, select {
+    padding: 8px 10px; border: 1px solid #cbd2d9; border-radius: 6px;
+    font-size: 0.95rem; background: #fff;
+  }
+  input:focus, select:focus { outline: 2px solid #7aa5d8; border-color: #7aa5d8; }
+  button {
+    padding: 9px 18px; border: none; border-radius: 6px;
+    background: #16324f; color: #fff; font-size: 0.95rem;
+    font-weight: 600; cursor: pointer;
+  }
+  button:hover { background: #24476b; }
+  button.secondary { background: #e4e7eb; color: #334e68; }
+  button.secondary:hover { background: #d5dbdf; }
+  button.small { padding: 4px 10px; font-size: 0.8rem; }
+  #profileCard {
+    margin-top: 14px; background: #f0f4f8; border-radius: 8px;
+    padding: 12px 16px; font-size: 0.95rem;
+  }
+  #profileCard .placeholder { color: #829ab1; font-style: italic; }
+  #profileCard b { color: #16324f; }
+  .room-list { list-style: none; }
+  .room-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 8px; padding: 10px 12px;
+    border: 1px solid #e4e7eb; border-radius: 8px; margin-bottom: 8px;
+    background: #fbfdfe;
+  }
+  .room-name { font-weight: 700; color: #16324f; }
+  .room-meta { color: #52606d; font-size: 0.85rem; }
+  .badge { padding: 3px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+  .badge.available { background: #d9f2e2; color: #1b7a43; }
+  .badge.booked { background: #fbe0dd; color: #b23b31; }
+  .times-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px; margin-top: 6px;
+  }
+  .slot {
+    border: 1px solid #e4e7eb; border-radius: 8px; padding: 10px;
+    text-align: center; background: #fbfdfe; font-size: 0.9rem;
+  }
+  .slot .time { font-weight: 700; color: #16324f; display: block; margin-bottom: 4px; }
+  .slot.open { border-color: #b7e0c6; }
+  .slot.taken { background: #fdf3f2; border-color: #f0c9c4; color: #8a5a55; }
+  .slot.taken .time { color: #b23b31; }
+  .msg {
+    margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+    font-size: 0.92rem; display: none;
+  }
+  .msg.success { background: #d9f2e2; color: #1b7a43; display: block; }
+  .msg.error { background: #fbe0dd; color: #b23b31; display: block; }
+  .columns { display: flex; flex-wrap: wrap; gap: 20px; }
+  .columns > div { flex: 1 1 280px; }
+  .columns h3 { font-size: 0.95rem; color: #334e68; margin-bottom: 8px; }
+
+  /* Department directory */
+  .dept-group { border: 1px solid #e4e7eb; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .dept-head {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #f0f4f8; padding: 8px 12px; font-weight: 700; color: #16324f;
+  }
+  .person {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-top: 1px solid #eef2f5; font-size: 0.9rem;
+  }
+  .person .email { color: #52606d; margin-left: auto; font-size: 0.85rem; }
+  .tickall { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #334e68; }
+
+  /* Notification centre */
+  .notif {
+    border-left: 4px solid #16324f; background: #f0f4f8;
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; font-size: 0.92rem;
+  }
+  .notif.invite { border-left-color: #2b6cb0; }
+  .notif.warn { border-left-color: #b7791f; background: #fefcbf; }
+  .notif.end { border-left-color: #b23b31; background: #fdf3f2; }
+  .notif time { color: #52606d; font-size: 0.8rem; display: block; }
+
+  /* Active meeting panel */
+  .active-meeting {
+    border: 1px solid #b7e0c6; background: #f4fbf6; border-radius: 8px;
+    padding: 12px 16px; font-size: 0.92rem;
+  }
+  .active-meeting b { color: #16324f; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Meeting Room Auto Booker</h1>
+  <p>Sample demo — everything is on-screen only and resets when you reload.</p>
+</header>
+
+<div class="summary-bar">
+  <span>Availability right now: <strong id="freeCount">0</strong> of <span id="totalCount">0</span> rooms free</span>
+  <span id="summaryNote">3 meeting rooms · Kuala Lumpur sample data</span>
+</div>
+
+<!-- 1. User details -->
+<section id="section-user">
+  <h2>1. Your Details</h2>
+  <form id="userForm">
+    <div class="field">
+      <label for="uName">Name</label>
+      <input id="uName" type="text" placeholder="e.g. Aisyah Rahman" required>
+    </div>
+    <div class="field">
+      <label for="uDept">Department</label>
+      <input id="uDept" type="text" list="deptNames" placeholder="e.g. Finance" required>
+      <datalist id="deptNames">
+        <option>Finance</option><option>Engineering</option><option>Marketing</option>
+        <option>Human Resources</option><option>Sales</option><option>Operations</option>
+      </datalist>
+    </div>
+    <div class="field">
+      <label for="uPos">Position</label>
+      <input id="uPos" type="text" placeholder="e.g. Senior Executive" required>
+    </div>
+    <button type="submit">Save details</button>
+  </form>
+  <div id="profileCard" class="placeholder">Fill in your details above to see them here.</div>
+</section>
+
+<!-- 2. Room status list -->
+<section id="section-rooms">
+  <h2>2. Room Status</h2>
+  <ul class="room-list" id="roomList"></ul>
+</section>
+
+<!-- 3. Time view + auto book -->
+<section id="section-time">
+  <h2>3. Time View &amp; Auto Book</h2>
+  <form id="bookForm">
+    <div class="field">
+      <label for="bPeople">Number of people</label>
+      <input id="bPeople" type="number" min="1" max="30" value="4" required>
+    </div>
+    <div class="field">
+      <label for="bTime">Time slot</label>
+      <select id="bTime">
+        <option value="09:00">09:00 – 10:00</option>
+        <option value="10:00">10:00 – 11:00</option>
+        <option value="11:00">11:00 – 12:00</option>
+        <option value="14:00">14:00 – 15:00</option>
+        <option value="15:00">15:00 – 16:00</option>
+        <option value="16:00">16:00 – 17:00</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="bDuration">Duration</label>
+      <select id="bDuration">
+        <option value="1">1 hour</option>
+        <option value="2">2 hours</option>
+      </select>
+    </div>
+    <button type="submit">Auto book</button>
+    <button type="button" class="secondary" id="resetBookings">Reset sample bookings</button>
+  </form>
+  <div id="bookMsg" class="msg"></div>
+
+  <div class="columns" style="margin-top:16px;">
+    <div>
+      <h3>Booked &amp; open slots by room</h3>
+      <div id="timeGrid" class="times-grid"></div>
+    </div>
+    <div>
+      <h3>Active meeting</h3>
+      <div id="activeMeeting" class="active-meeting">No meeting running in the demo right now.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Department directory (email invites) -->
+<section id="section-directory">
+  <h2>4. Department Directory — Invite by Email</h2>
+  <p style="font-size:0.9rem;color:#52606d;margin-bottom:12px;">
+    Tick colleagues to invite. When you book a meeting, invites are sent to everyone ticked,
+    arriving <b>15 minutes before</b> the meeting starts. Sample emails only — nothing is really sent.
+  </p>
+  <div id="deptDirectory"></div>
+  <div style="margin-top:8px;">
+    <button type="button" class="secondary" id="tickAllBtn">Tick all departments</button>
+    <button type="button" class="secondary" id="untickAllBtn">Untick all</button>
+  </div>
+</section>
+
+<!-- 5. Notification centre -->
+<section id="section-notif">
+  <h2>5. Notification Centre</h2>
+  <div id="notifList"></div>
+</section>
+
+<script>
+// ---- Sample data (made up, Malaysia-specific, on-screen only) ----
+const TIMES = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+// Demo clock: minutes offset from the start of the first booked slot.
+// Each real second = 1 demo minute so reminders fire quickly on screen.
+const DEMO_SPEED = 1; // demo minutes per real second
+
+let rooms = [
+  { name: "Melati Room",  floor: "Level 12, Menara MK", capacity: 6,
+    bookings: { "09:00": { who: "Product standup — Arif (Engineering)", pax: 4, hours: 1 } } },
+  { name: "Kenanga Room", floor: "Level 8, Menara MK", capacity: 10,
+    bookings: { "14:00": { who: "Budget review — Salmah (Finance)", pax: 6, hours: 2 } } },
+  { name: "Cempaka Room", floor: "Level 5, Menara MK", capacity: 20, bookings: {} }
+];
+
+let directory = [
+  { dept: "Engineering", staff: [
+    { name: "Arif bin Ismail",   email: "arif.ismail@company.my",  ticked: false },
+    { name: "Nurul Hidayah",     email: "nurul.hidayah@company.my", ticked: false },
+    { name: "Tan Wei Ming",      email: "weiming.tan@company.my",  ticked: false } ] },
+  { dept: "Finance", staff: [
+    { name: "Salmah binti Omar", email: "salmah.omar@company.my",  ticked: false },
+    { name: "Kavitha Raman",     email: "kavitha.raman@company.my", ticked: false } ] },
+  { dept: "Marketing", staff: [
+    { name: "Daniel Wong",       email: "daniel.wong@company.my",  ticked: false },
+    { name: "Aina Sofea",        email: "aina.sofea@company.my",   ticked: false } ] },
+  { dept: "Human Resources", staff: [
+    { name: "Farah Adlina",      email: "farah.adlina@company.my", ticked: false } ] }
+];
+
+let notifications = [];
+let demoClock = null;        // current demo time as slot index position
+let activeMeeting = null;    // { room, start, end, label, warned10, ended }
+let scheduled = [];          // queued on-screen notifications { fireAt (demo minutes), type, text }
+
+function slotToMin(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+function minToLabel(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+// ---- Elements ----
+const roomList    = document.getElementById("roomList");
+const timeGrid    = document.getElementById("timeGrid");
+const freeCount   = document.getElementById("freeCount");
+const totalCount  = document.getElementById("totalCount");
+const profileCard = document.getElementById("profileCard");
+const bookMsg     = document.getElementById("bookMsg");
+const notifList   = document.getElementById("notifList");
+const activeEl    = document.getElementById("activeMeeting");
+const dirEl       = document.getElementById("deptDirectory");
+
+// ---- Rendering ----
+function render() {
+  roomList.innerHTML = "";
+  rooms.forEach(room => {
+    const free = Object.keys(room.bookings).length === 0;
+    const li = document.createElement("li");
+    li.innerHTML =
+      `<div><span class="room-name">${room.name}</span>
+        <div class="room-meta">${room.floor} · seats ${room.capacity} people</div></div>
+       <span class="badge ${free ? "available" : "booked"}">${free ? "Available" : "Booked"}</span>`;
+    roomList.appendChild(li);
+  });
+
+  timeGrid.innerHTML = "";
+  rooms.forEach(room => {
+    const t = document.createElement("div");
+    t.style.cssText = "grid-column: 1 / -1; font-weight:700; color:#334e68; margin-top:8px;";
+    t.textContent = room.name;
+    timeGrid.appendChild(t);
+    TIMES.forEach(time => {
+      const b = room.bookings[time];
+      const div = document.createElement("div");
+      div.className = "slot " + (b ? "taken" : "open");
+      div.innerHTML = `<span class="time">${time}</span>` +
+        (b ? `Booked<br><small>${b.who}<br>${b.hours}h</small>` : "Open");
+      timeGrid.appendChild(div);
+    });
+  });
+
+  const free = rooms.filter(r => Object.keys(r.bookings).length === 0).length;
+  freeCount.textContent = free;
+  totalCount.textContent = rooms.length;
+}
+
+function renderDirectory() {
+  dirEl.innerHTML = "";
+  directory.forEach((grp, gi) => {
+    const box = document.createElement("div");
+    box.className = "dept-group";
+    const head = document.createElement("div");
+    head.className = "dept-head";
+    head.innerHTML = `<span>${grp.dept} (${grp.staff.length} people)</span>
+      <label class="tickall"><input type="checkbox" data-dept="${gi}" class="tickAllDept"> tick all</label>`;
+    box.appendChild(head);
+    grp.staff.forEach((p, pi) => {
+      const row = document.createElement("div");
+      row.className = "person";
+      row.innerHTML =
+        `<input type="checkbox" data-dept="${gi}" data-person="${pi}" class="personTick" ${p.ticked ? "checked" : ""}>
+         <span>${p.name}</span><span class="email">${p.email}</span>`;
+      box.appendChild(row);
+    });
+    dirEl.appendChild(box);
+  });
+
+  dirEl.querySelectorAll(".tickAllDept").forEach(cb => {
+    cb.checked = directory[cb.dataset.dept].staff.every(p => p.ticked);
+    cb.addEventListener("change", () => {
+      directory[cb.dataset.dept].staff.forEach(p => p.ticked = cb.checked);
+      renderDirectory();
+    });
+  });
+  dirEl.querySelectorAll(".personTick").forEach(cb => {
+    cb.addEventListener("change", () => {
+      directory[cb.dataset.dept].staff[cb.dataset.person].ticked = cb.checked;
+      const grp = directory[cb.dataset.dept];
+      dirEl.querySelector(`.tickAllDept[data-dept="${cb.dataset.dept}"]`).checked =
+        grp.staff.every(p => p.ticked);
+    });
+  });
+}
+
+function renderNotifications() {
+  notifList.innerHTML = "";
+  if (notifications.length === 0) {
+    notifList.innerHTML = `<div class="notif">No notifications yet. Book a meeting to see invites and reminders here.</div>`;
+    return;
+  }
+  notifications.forEach(n => {
+    const d = document.createElement("div");
+    d.className = "notif " + n.type;
+    d.innerHTML = `${n.text}<time>${n.stamp}</time>`;
+    notifList.appendChild(d);
+  });
+}
+
+function renderActive() {
+  if (!activeMeeting) {
+    activeEl.innerHTML = "No meeting running in the demo right now.";
+    return;
+  }
+  const remain = activeMeeting.end - activeMeeting.now;
+  activeEl.innerHTML =
+    `<b>${activeMeeting.label}</b> in ${activeMeeting.room}<br>
+     ${minToLabel(activeMeeting.start)} – ${minToLabel(activeMeeting.end)} ·
+     ${remain} min remaining` +
+    (remain <= 10 ? `<br><b style="color:#b7791f;">⚠ Please wrap up — room releases soon.</b>` : "");
+}
+
+function showMsg(text, ok) {
+  bookMsg.textContent = text;
+  bookMsg.className = "msg " + (ok ? "success" : "error");
+}
+
+function pushNotif(type, text) {
+  const now = activeMeeting ? activeMeeting.now : 0;
+  notifications.unshift({ type, text, stamp: "demo time " + minToLabel(now) });
+  renderNotifications();
+}
+
+// ---- Demo clock engine ----
+// Simulates the meeting day: 1 real second = 1 demo minute while a meeting is "running".
+function startDemoFor(booking) {
+  const start = slotToMin(booking.time);
+  const end = start + booking.hours * 60;
+  activeMeeting = { room: booking.room, label: booking.who, start, end,
+                    now: start, warned10: false, ended: false };
+
+  // Queue the early invite (15 min before start) for ticked colleagues
+  const invited = directory.flatMap(g => g.staff.filter(p => p.ticked).map(p => p.email));
+  if (invited.length) {
+    scheduled.push({
+      fireAt: start - 15,
+      type: "invite",
+      text: `📧 Invites sent (${invited.length} recipient${invited.length > 1 ? "s" : ""}): meeting
+             "${booking.who}" in ${booking.room} at ${minToLabel(start)} —
+             emailed 15 min early to ${invited.join(", ")}`
+    });
+  }
+  pushNotif("invite", `Meeting "${booking.who}" booked in ${booking.room}, ${minToLabel(start)}–${minToLabel(end)}.`);
+
+  clearInterval(demoClock);
+  demoClock = setInterval(tick, 1000);
+  tick();
+}
+
+function tick() {
+  if (!activeMeeting) return;
+  activeMeeting.now += DEMO_SPEED;
+  const m = activeMeeting;
+
+  // 10-minute-before-end notification
+  if (!m.warned10 && m.end - m.now <= 10 && m.end > m.now) {
+    m.warned10 = true;
+    pushNotif("warn", `⏰ "${m.label}" ends in 10 minutes (${minToLabel(m.end)}). Please wrap up so the next group can enter ${m.room}.`);
+  }
+  // Meeting end → room auto-releases
+  if (!m.ended && m.now >= m.end) {
+    m.ended = true;
+    const startSlot = Object.keys(m.room.bookings).find(t => slotToMin(t) === m.start);
+    if (startSlot) delete m.room.bookings[startSlot];
+    pushNotif("end", `✅ "${m.label}" has ended. ${m.room} is now available again for other people.`);
+    clearInterval(demoClock);
+    setTimeout(() => { activeMeeting = null; }, 1500);
+  }
+  renderActive();
+  render();
+}
+
+// ---- Feature 1: save-on-screen user details ----
+document.getElementById("userForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = document.getElementById("uName").value.trim();
+  const dept = document.getElementById("uDept").value.trim();
+  const pos  = document.getElementById("uPos").value.trim();
+  profileCard.className = "";
+  profileCard.innerHTML = `<b>${name}</b> — ${pos}, ${dept} department. Details saved on screen.`;
+});
+
+// ---- Feature 3: auto book by request ----
+document.getElementById("bookForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const people = parseInt(document.getElementById("bPeople").value, 10);
+  const time   = document.getElementById("bTime").value;
+  const hours  = parseInt(document.getElementById("bDuration").value, 10);
+  const who    = profileCard.classList.contains("placeholder")
+    ? "Your meeting" : profileCard.querySelector("b").textContent;
+
+  // Ensure all needed slots are free in the room
+  const fits = rooms.filter(r => r.capacity >= people).sort((a, b) => a.capacity - b.capacity);
+  const startMin = slotToMin(time);
+  const needed = [];
+  for (let i = 0; i < hours; i++) {
+    const t = TIMES.find(x => slotToMin(x) === startMin + i * 60);
+    if (t) needed.push(t);
+  }
+  const room = fits.find(r => needed.every(t => !r.bookings[t]));
+
+  if (!room) {
+    showMsg(`No room fits ${people} people for ${hours}h at ${time}. Try another time or a smaller group.`, false);
+    return;
+  }
+  needed.forEach(t => room.bookings[t] = { who: `${who} — ${people} pax`, pax: people, hours: 1 });
+  render();
+  showMsg(`Booked ${room.name} (${room.floor}, seats ${room.capacity}) at ${time} for ${hours} hour${hours > 1 ? "s" : ""}, ${people} people. Demo clock started.`, true);
+  startDemoFor({ room, time, hours, who: `${who} — ${people} pax` });
+});
+
+// ---- Reset ----
+document.getElementById("resetBookings").addEventListener("click", () => {
+  clearInterval(demoClock);
+  activeMeeting = null;
+  scheduled = [];
+  rooms[0].bookings = { "09:00": { who: "Product standup — Arif (Engineering)", pax: 4, hours: 1 } };
+  rooms[1].bookings = { "14:00": { who: "Budget review — Salmah (Finance)", pax: 6, hours: 2 } };
+  rooms[2].bookings = {};
+  notifications = [];
+  showMsg("Sample bookings restored.", true);
+  render();
+  renderNotifications();
+  renderActive();
+});
+
+document.getElementById("tickAllBtn").addEventListener("click", () => {
+  directory.forEach(g => g.staff.forEach(p => p.ticked = true));
+  renderDirectory();
+});
+document.getElementById("untickAllBtn").addEventListener("click", () => {
+  directory.forEach(g => g.staff.forEach(p => p.ticked = false));
+  renderDirectory();
+});
+
+// ---- Init: Feature 2 summary renders on load ----
+render();
+renderDirectory();
+renderNotifications();
+renderActive();
+</script>
+</body>
+</html>
